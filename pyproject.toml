@@ -1,0 +1,31 @@
+[project]
+name = "fail-detect"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "av>=16.1.0",
+    "dill>=0.4.1",
+    "dm-control>=1.0.36",
+    "einops>=0.8.2",
+    "gym>=0.26.2",
+    "imagecodecs",
+    "pandas>=2.3.3",
+    "pybullet>=3.2.7",
+    "pygame>=2.6.1",
+    "pyopengl-accelerate>=3.1.10",
+    "r3m",
+    "robomimic",
+    "robosuite>=1.5.2",
+    "scikit-image>=0.26.0",
+    "scikit-learn>=1.8.0",
+    "scikit-video>=1.1.11",
+    "shapely>=2.1.2",
+    "wandb>=0.24.2",
+    "zarr<3",
+]
+
+[tool.uv.sources]
+r3m = { git = "https://github.com/facebookresearch/r3m.git" }
+robomimic = { git = "https://github.com/ARISE-Initiative/robomimic.git", rev = "v0.5.0" }

@@ -1,8 +1,32 @@
 from typing import Union
-import pytorch3d.transforms as pt
 import torch
 import numpy as np
 import functools
+
+# import pytorch3d from vendor directory
+import os, sys
+current_dir = os.path.dirname(__file__)
+vendor_dir = os.path.join(current_dir, "pytorch3d")
+if os.path.isdir(vendor_dir) and vendor_dir not in sys.path:
+    sys.path.insert(0, vendor_dir)
+
+try:
+    import pytorch3d.transforms as pt
+except ImportError as e:
+    raise ImportError(
+        f"""pytorch3d not found. 
+Please clone into:
+    {vendor_dir}
+
+Example:
+    cd {current_dir}
+    git clone https://github.com/facebookresearch/pytorch3d.git
+
+(not recommended) Or install via:
+    uv add "pytorch3d @ git+https://github.com/facebookresearch/pytorch3d.git" --no-build-isolation
+"""
+) from e
+
 
 class RotationTransformer:
     valid_reps = [

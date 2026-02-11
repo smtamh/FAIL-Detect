@@ -22,7 +22,7 @@ from diffusion_policy.env.robomimic.robomimic_image_wrapper import RobomimicImag
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.obs_utils as ObsUtils
-
+from robosuite.controllers.composite.composite_controller_factory import refactor_composite_controller_config
 
 def create_env(env_meta, shape_meta, enable_render=True):
     modality_mapping = collections.defaultdict(list)
@@ -48,11 +48,11 @@ class RobomimicImageRunner(BaseImageRunner):
             output_dir,
             dataset_path,
             shape_meta:dict,
-            n_train=10,
-            n_train_vis=3,
+            n_train=10,             # 10
+            n_train_vis=3,          # 3
             train_start_idx=0,
-            n_test=22,
-            n_test_vis=6,
+            n_test=22,              # 22
+            n_test_vis=6,           # 6
             test_start_seed=10000,
             max_steps=400,
             n_obs_steps=2,
@@ -81,10 +81,29 @@ class RobomimicImageRunner(BaseImageRunner):
         # disable object state observation
         env_meta['env_kwargs']['use_object_obs'] = False
 
+        # edit env meta for robosuite >= 1.5
+        env_kwargs = env_meta['env_kwargs']
+        robots = env_kwargs.get('robots', ['Panda'])
+        robot_type = robots[0] if isinstance(robots, (list, tuple)) else robots
+        arms=["right"]
+
+        env_cfg = env_kwargs['controller_configs']
+        env_cfg.setdefault("input_type", "delta")
+        env_cfg.setdefault("input_ref_frame", "base")
+        env_cfg.setdefault("damping_ratio", env_cfg.get("damping", 1))
+        env_cfg.setdefault("damping_ratio_limits", env_cfg.get("damping_limits", [0,10]))
+
         rotation_transformer = None
         if abs_action:
-            env_meta['env_kwargs']['controller_configs']['control_delta'] = False
+            env_cfg['input_type'] = "absolute"
             rotation_transformer = RotationTransformer('axis_angle', 'rotation_6d')
+
+        env_kwargs["controller_configs"] = refactor_composite_controller_config(
+            controller_config=env_cfg,
+            robot_type=robot_type,
+            arms=arms
+        )
+        env_meta["env_kwargs"] = env_kwargs
 
         def env_fn():
             robomimic_env = create_env(

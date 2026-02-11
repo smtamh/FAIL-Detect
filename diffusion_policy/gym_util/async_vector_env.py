@@ -107,11 +107,22 @@ class AsyncVectorEnv(VectorEnv):
             action_space = action_space or dummy_env.action_space
         dummy_env.close()
         del dummy_env
+        
+        # settings for gym: disable this section when you use gymnasium
         super(AsyncVectorEnv, self).__init__(
             num_envs=len(env_fns),
             observation_space=observation_space,
             action_space=action_space,
         )
+
+        # # settings for gymnasium: disable this section when you use gym
+        # self.num_envs = len(env_fns)
+        # self.single_observation_space = observation_space
+        # self.single_action_space = action_space
+        # self.observation_space = observation_space
+        # self.action_space = action_space
+        # self.closed=False
+        # self._state=AsyncState.DEFAULT
 
         if self.shared_memory:
             try:
@@ -119,7 +130,7 @@ class AsyncVectorEnv(VectorEnv):
                     self.single_observation_space, n=self.num_envs, ctx=ctx
                 )
                 self.observations = read_from_shared_memory(
-                    _obs_buffer, self.single_observation_space, n=self.num_envs
+                    self.single_observation_space, _obs_buffer, n=self.num_envs
                 )
             except CustomSpaceError:
                 raise ValueError(

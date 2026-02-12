@@ -4,7 +4,8 @@ import sys
 import numpy as np
 import math
 sys.path.append('..')
-master_dir = '../UQ_baselines'
+master_dir = os.path.join(os.path.dirname(__file__), '..', 'UQ_baselines')
+master_dir = os.path.abspath(master_dir)
 path_logpZO = os.path.join(master_dir, 'logpZO')
 path_RND = os.path.join(master_dir, 'RND')
 path_DER = os.path.join(master_dir, 'DER')

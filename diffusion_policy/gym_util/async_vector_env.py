@@ -197,7 +197,7 @@ class AsyncVectorEnv(VectorEnv):
         _, successes = zip(*[pipe.recv() for pipe in self.parent_pipes])
         self._raise_if_errors(successes)
 
-    def reset_async(self):
+    def reset_async(self, seed=None, options=None):
         self._assert_is_running()
         if self._state != AsyncState.DEFAULT:
             raise AlreadyPendingCallError(
@@ -205,11 +205,32 @@ class AsyncVectorEnv(VectorEnv):
                 "for a pending call to `{0}` to complete".format(self._state.value),
                 self._state.value,
             )
+
+        # gym>=0.25 vector API forwards `seed` and `options` to `reset_async`.
+        # Keep backward compatibility while supporting newer callers.
+        if options is not None:
+            logger.warn("`AsyncVectorEnv.reset_async` received `options`, which are ignored.")
+
+        if seed is not None:
+            if isinstance(seed, int):
+                seeds = [seed + i for i in range(self.num_envs)]
+            else:
+                seeds = list(seed)
+                if len(seeds) != self.num_envs:
+                    raise ValueError(
+                        "If `seed` is a sequence, its length must match `num_envs`. "
+                        f"Got {len(seeds)} seeds for {self.num_envs} envs."
+                    )
+            for pipe, this_seed in zip(self.parent_pipes, seeds):
+                pipe.send(("seed", this_seed))
+            _, successes = zip(*[pipe.recv() for pipe in self.parent_pipes])
+            self._raise_if_errors(successes)
+
         for pipe in self.parent_pipes:
             pipe.send(("reset", None))
         self._state = AsyncState.WAITING_RESET
 
-    def reset_wait(self, timeout=None):
+    def reset_wait(self, timeout=None, **kwargs):
         """
         Parameters
         ----------
@@ -239,11 +260,18 @@ class AsyncVectorEnv(VectorEnv):
         self._raise_if_errors(successes)
         self._state = AsyncState.DEFAULT
 
+        # # check observation space
+        # first = results[0]
+        # for k, subspace in self.single_observation_space.spaces.items():
+        #     print("[reset_wait]", k,
+        #         "item", getattr(first[k], "shape", type(first[k])),
+        #         "out", getattr(self.observations[k], "shape", type(self.observations[k])),
+        #         "space", subspace.shape)
+
         if not self.shared_memory:
             self.observations = concatenate(
-                results, self.observations, self.single_observation_space
+                self.single_observation_space, results, self.observations
             )
-
         return deepcopy(self.observations) if self.copy else self.observations
 
     def step_async(self, actions):
@@ -265,7 +293,7 @@ class AsyncVectorEnv(VectorEnv):
             pipe.send(("step", action))
         self._state = AsyncState.WAITING_STEP
 
-    def step_wait(self, timeout=None):
+    def step_wait(self, timeout=None, **kwargs):
         """
         Parameters
         ----------
@@ -304,7 +332,7 @@ class AsyncVectorEnv(VectorEnv):
 
         if not self.shared_memory:
             self.observations = concatenate(
-                observations_list, self.observations, self.single_observation_space
+                self.single_observation_space, observations_list, self.observations
             )
 
         return (

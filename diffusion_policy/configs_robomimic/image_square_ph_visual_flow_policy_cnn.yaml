@@ -181,13 +181,13 @@ task:
     crf: 22
     dataset_path: data/robomimic/datasets/square/ph/image_abs.hdf5
     fps: 10
-    max_steps: 400
+    max_steps: 30
     n_action_steps: 8
-    n_envs: 28
+    n_envs: 7
     n_obs_steps: 2
-    n_test: 50
+    n_test: 25
     n_test_vis: 4
-    n_train: 6
+    n_train: 3
     n_train_vis: 2
     past_action: false
     render_obs_key: agentview_image
@@ -258,9 +258,9 @@ training:
   lr_warmup_steps: 500
   max_train_steps: null
   max_val_steps: null
-  num_epochs: 800
+  num_epochs: 4
   resume: true
-  rollout_every: 50
+  rollout_every: 2
   sample_every: 5
   seed: 42
   tqdm_interval_sec: 1.0

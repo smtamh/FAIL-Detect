@@ -48,11 +48,11 @@ class RobomimicImageRunner(BaseImageRunner):
             output_dir,
             dataset_path,
             shape_meta:dict,
-            n_train=10,             # 10
-            n_train_vis=3,          # 3
+            n_train=10,
+            n_train_vis=3,
             train_start_idx=0,
-            n_test=22,              # 22
-            n_test_vis=6,           # 6
+            n_test=22,
+            n_test_vis=6,
             test_start_seed=10000,
             max_steps=400,
             n_obs_steps=2,
@@ -234,7 +234,7 @@ class RobomimicImageRunner(BaseImageRunner):
             env_prefixs.append('test/')
             env_init_fn_dills.append(dill.dumps(init_fn))
 
-        env = AsyncVectorEnv(env_fns, dummy_env_fn=dummy_env_fn)
+        env = AsyncVectorEnv(env_fns, dummy_env_fn=dummy_env_fn, shared_memory=False)
         # env = SyncVectorEnv(env_fns)
 
 

@@ -1,5 +1,6 @@
 from typing import Dict
 import math
+from networkx import sigma
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -205,7 +206,7 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
             dtype=condition_data.dtype,
             device=condition_data.device,
             generator=generator)
-    
+
         # set step values
         start, end, sign = 1, 0, -1
         timesteps = torch.linspace(start, end, self.num_inference_steps+1, device=condition_data.device)
@@ -217,8 +218,13 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
         
         trace = 0; d = trajectory.reshape(trajectory.shape[0], -1).shape[1]
         sigma = 0.001/math.sqrt(d)
-        if self.global_eps is None:
-            self.global_eps = torch.randn_like(trajectory).to(condition_data.device)
+        # if self.global_eps is None:
+        #     self.global_eps = torch.randn_like(trajectory).to(condition_data.device)
+        self.global_eps = torch.randn_like(trajectory)
+
+        print("trajectory:", trajectory.shape)
+        print("sigma:", sigma)
+        print("global_eps:", self.global_eps.shape, self.global_eps.dtype, self.global_eps.device)    
 
         for t in timesteps[:-1]:
             # 1. apply conditioning
@@ -229,6 +235,8 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
             model_output = model(trajectory, t, 
                 local_cond=local_cond, global_cond=global_cond)
             # Hutchinson's trace estimator with finite difference approximation
+            print("PERTURB CALLED, B=", trajectory.shape[0])
+
             model_output_perturb = model(trajectory + sigma*self.global_eps, t, 
                 local_cond=local_cond, global_cond=global_cond)
             e_dzdx = (model_output_perturb - model_output) / sigma

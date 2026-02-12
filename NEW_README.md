@@ -29,7 +29,6 @@ uv add "pytorch3d @ git+https://github.com/facebookresearch/pytorch3d.git" --no-
 ### 3. Create uv Project
 ```
 cd FAIL-Detect
-uv init             # initialize FAIL-Detect as a uv project
 uv sync             # uv reads `pyproject.toml` and downloads dependencies in 'FAIL-Detect/.venv'
 
 # 'uv run ...' use 'FAIL-Detect/.venv' automatically.
@@ -117,11 +116,11 @@ cd ../..
 ```
 cd UQ_test
 # modify = False is ID
-uv run eval_together.py --policy_type='flow' --task_name='square' --device=0 --modify=false --num=2000
+uv run eval_together.py --policy_type='flow' --task_name='square' --device=0 --modify=false --num=25
 uv run eval_together.py --policy_type='diffusion' --task_name='square' --device=0 --modify=false --num=2000
 
 # modify = True is OOD
-uv run eval_together.py --policy_type='flow' --task_name='square' --device=0 --modify=true --num=2000
+uv run eval_together.py --policy_type='flow' --task_name='square' --device=0 --modify=true --num=25
 uv run eval_together.py --policy_type='diffusion' --task_name='square' --device=0 --modify=true --num=2000
 cd ..
 
@@ -133,7 +132,7 @@ cd ..
 ```
 cd UQ_test
 # flow
-uv run plot_with_CP_band.py # Generate CP band and make decision
+uv run plot_with_CP_band.py --num_train=5 --num_cal=10 --num_te=10 # Generate CP band and make decision
 uv run barplot.py # Generate barplots
 
 # diffusion

@@ -75,13 +75,35 @@ class RobomimicImageWrapper(gym.Env):
     def modify_camera_size(self, size = 84):
         raise ValueError
 
+    @staticmethod
+    def _to_chw(x):
+        x = np.asarray(x)
+
+        if x.dtype != np.float32:
+            x = x.astype(np.float32)
+
+        if x.ndim==3 and x.shape[-1] in (3,4):
+            x=np.moveaxis(x,-1,0)
+
+        return x
+
     def get_observation(self, raw_obs=None):
         if raw_obs is None:
             raw_obs = self.env.get_observation()
-        self.render_cache = raw_obs[self.render_obs_key]
-        obs = dict()
+        # self.render_cache = raw_obs[self.render_obs_key]
+        # obs = dict()
+        # for key in self.observation_space.keys():
+        #     obs[key] = raw_obs[key]
+        obs = {}
         for key in self.observation_space.keys():
-            obs[key] = raw_obs[key]
+            val = raw_obs[key]
+            if key.endswith('image'):
+                val = self._to_chw(val)
+            else:
+                val = np.asarray(val, dtype=np.float32)
+            obs[key] = val
+
+        self.render_cache = obs[self.render_obs_key]       
         return obs
 
     def seed(self, seed=None):

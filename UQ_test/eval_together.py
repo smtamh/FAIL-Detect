@@ -19,6 +19,8 @@ sys.path.append('..')
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 torch.manual_seed(1103); numpy.random.seed(1103)
 
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 @click.command()
 @click.option('-p', '--policy_type', required=True, default='flow')
 @click.option('-t', '--task_name', required=True, default='square')
@@ -44,7 +46,7 @@ def main(policy_type, task_name, device, modify, num):
                 num_inference_steps = 40
         return num_inference_steps
     num_inference_step = get_steps(policy_type, task_name)
-    output_dir = os.path.join(f'../data/outputs/train_{policy_type}_unet_visual_{task_name}_image{suffix}', 'final_eval', f'steps_{num_inference_step}{modify_suffix}')
+    output_dir = os.path.join(f'./data/outputs/train_{policy_type}_unet_visual_{task_name}_image{suffix}', 'final_eval', f'steps_{num_inference_step}{modify_suffix}')
     os.makedirs(output_dir, exist_ok=True)
     json_filename = f'eval_log_steps_{num_inference_step}.json'
     
@@ -83,34 +85,35 @@ def main(policy_type, task_name, device, modify, num):
         policy.to(device)
         policy.eval()
         return policy, cfg, curr_shape
-    ckpt_path = f'../data/outputs/train_{policy_type}_unet_visual_{task_name}_image{suffix}/checkpoints/latest.ckpt'
+    ckpt_path = f'./data/outputs/train_{policy_type}_unet_visual_{task_name}_image{suffix}/checkpoints/latest.ckpt'
     policy, cfg, curr_shape = get_policy(ckpt_path) # Policy generator
 
     env_runner = hydra.utils.instantiate(
         cfg.task.env_runner,
         output_dir=output_dir)
     env_runner.curr_shape = curr_shape
+    env_runner.task_name = task_name
     ## Get baseline comparison
     import eval_load_baseline as elb
-    # Get DER
-    baseline_model = elb.get_baseline_model('DER', task_name, policy_type=policy_type).to(device)
-    env_runner.baseline_model = baseline_model; env_runner.task_name = task_name; print('DER loaded')
-    # Get RND
-    baseline_model_RND = elb.get_baseline_model('RND', task_name, policy_type=policy_type).to(device)
-    env_runner.baseline_model_RND = baseline_model_RND; print('RND loaded')
-    ## Get CFM
-    baseline_model_CFM = elb.get_baseline_model('CFM', task_name, policy_type=policy_type).to(device)
-    env_runner.baseline_model_CFM = baseline_model_CFM; print('CFM loaded')
+    # # Get DER
+    # baseline_model = elb.get_baseline_model('DER', task_name, policy_type=policy_type).to(device)
+    # env_runner.baseline_model = baseline_model; env_runner.task_name = task_name; print('DER loaded')
+    # # Get RND
+    # baseline_model_RND = elb.get_baseline_model('RND', task_name, policy_type=policy_type).to(device)
+    # env_runner.baseline_model_RND = baseline_model_RND; print('RND loaded')
+    # ## Get CFM
+    # baseline_model_CFM = elb.get_baseline_model('CFM', task_name, policy_type=policy_type).to(device)
+    # env_runner.baseline_model_CFM = baseline_model_CFM; print('CFM loaded')
     ## Get logpZO
     baseline_model_logpZO = elb.get_baseline_model('logpZO', task_name, policy_type=policy_type).to(device)
     env_runner.baseline_model_logpZO = baseline_model_logpZO; print('logpZO loaded')
     env_runner.baseline_model_logpZO.global_eps = None
-    # Get NatPN on (O_t, K-means label)
-    baseline_model_natpn = elb.get_baseline_model('NatPN', task_name, policy_type=policy_type).to(device)
-    env_runner.baseline_model_natpn = baseline_model_natpn; print('NatPN loaded')
-    # PCA + K-means as SOTA
-    baseline_model_PCA_kmeans = elb.get_baseline_model('PCA_kmeans', task_name, policy_type=policy_type).to(device)
-    env_runner.baseline_model_PCA_kmeans = baseline_model_PCA_kmeans; print('PCA_kmeans loaded')
+    # # Get NatPN on (O_t, K-means label)
+    # baseline_model_natpn = elb.get_baseline_model('NatPN', task_name, policy_type=policy_type).to(device)
+    # env_runner.baseline_model_natpn = baseline_model_natpn; print('NatPN loaded')
+    # # PCA + K-means as SOTA
+    # baseline_model_PCA_kmeans = elb.get_baseline_model('PCA_kmeans', task_name, policy_type=policy_type).to(device)
+    # env_runner.baseline_model_PCA_kmeans = baseline_model_PCA_kmeans; print('PCA_kmeans loaded')
     #####
     env_runner.modify_t = 50 if 'can' not in ckpt_path else 15
     with torch.no_grad():

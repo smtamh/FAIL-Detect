@@ -27,7 +27,7 @@ if __name__ == "__main__":
     
     # choice of model/method
     net = Net.get_unet(input_dim).to(device)
-    EPOCHS = 200
+    EPOCHS = 200 # tested with 10 epochs
     optimizer = torch.optim.Adam(net.parameters(), lr = 1e-4)
     if os.path.exists(ckpt_file):
         ckpt = torch.load(ckpt_file)

@@ -24,7 +24,7 @@ if __name__ == "__main__":
 	train_data = torch.utils.data.TensorDataset(X, Y)
 	train_loader = torch.utils.data.DataLoader(train_data, batch_size=128, shuffle=True)
 	ckpt_file = f'{type}_{args.policy_type}.ckpt'
-	EPOCHS = 200
+	EPOCHS = 200 # tested with 10 epochs
 	optimizer_params = {
 		"lr": 1e-04,
 		"betas": (0.9, 0.999),
@@ -90,7 +90,7 @@ if __name__ == "__main__":
 
 		plt.title(r"NLL loss")
 		plt.plot(losses)
-		plt.show()
+		# plt.show()
 		suffix = type
 		os.makedirs('images', exist_ok=True)
 		plt.savefig(f"images/training_loss_{suffix}.png")

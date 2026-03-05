@@ -59,6 +59,36 @@ class RobomimicImageWrapper(gym.Env):
             observation_space[key] = this_space
         self.observation_space = observation_space
 
+    def _format_image_obs(self, key, image):
+        expected_shape = tuple(self.shape_meta['obs'][key]['shape'])
+        image = np.asarray(image)
+
+        if image.shape != expected_shape:
+            if image.ndim != 3:
+                raise ValueError(
+                    f"Unexpected image ndim for {key}: got {image.ndim}, expected 3"
+                )
+            channel_axes = [i for i, dim in enumerate(image.shape) if dim == 3]
+            if len(channel_axes) != 1:
+                raise ValueError(
+                    f"Cannot infer channel axis for {key}: got shape {image.shape}"
+                )
+            image = np.moveaxis(image, channel_axes[0], 0)
+
+        if image.shape != expected_shape:
+            raise ValueError(
+                f"Unexpected image shape for {key}: got {image.shape}, expected {expected_shape}"
+            )
+
+        if image.dtype == np.uint8:
+            image = image.astype(np.float32) / 255.0
+        else:
+            image = image.astype(np.float32, copy=False)
+            if image.max(initial=0.0) > 1.0 or image.min(initial=0.0) < 0.0:
+                image = np.clip(image, 0.0, 255.0) / 255.0
+
+        return image
+
     def modify_environment(self, delta=0.1, render_obs_key='agentview_image'):
         # Accessing the correct simulation object
         # See here: https://github.com/masha-itkina-tri/robomimic-private/blob/889b9a73c0006b8ee733ae98d0fe688f3c7e8adf/robomimic/scripts/run_trained_agent.py#L163
@@ -78,10 +108,15 @@ class RobomimicImageWrapper(gym.Env):
     def get_observation(self, raw_obs=None):
         if raw_obs is None:
             raw_obs = self.env.get_observation()
-        self.render_cache = raw_obs[self.render_obs_key]
         obs = dict()
         for key in self.observation_space.keys():
-            obs[key] = raw_obs[key]
+            value = raw_obs[key]
+            if key.endswith('image'):
+                value = self._format_image_obs(key, value)
+            else:
+                value = np.asarray(value, dtype=np.float32)
+            obs[key] = value
+        self.render_cache = obs[self.render_obs_key]
         return obs
 
     def seed(self, seed=None):

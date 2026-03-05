@@ -14,7 +14,7 @@ from diffusion_policy.common.robomimic_config_util import get_robomimic_config
 from robomimic.algo import algo_factory
 from robomimic.algo.algo import PolicyAlgo
 import robomimic.utils.obs_utils as ObsUtils
-import robomimic.models.base_nets as rmbn
+import robomimic.models.obs_core as rmoc
 import diffusion_policy.model.vision.crop_randomizer as dmvc
 from diffusion_policy.common.pytorch_util import dict_apply, replace_submodules
 
@@ -132,7 +132,7 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
         if eval_fixed_crop:
             replace_submodules(
                 root_module=obs_encoder,
-                predicate=lambda x: isinstance(x, rmbn.CropRandomizer),
+                predicate=lambda x: isinstance(x, rmoc.CropRandomizer),
                 func=lambda x: dmvc.CropRandomizer(
                     input_shape=x.input_shape,
                     crop_height=x.crop_height,
@@ -217,8 +217,17 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
         
         trace = 0; d = trajectory.reshape(trajectory.shape[0], -1).shape[1]
         sigma = 0.001/math.sqrt(d)
-        if self.global_eps is None:
-            self.global_eps = torch.randn_like(trajectory).to(condition_data.device)
+        
+        # Recreate Hutchinson noise whenever batch/shape/device changes.
+        # This avoids stale cached noise from a previous call (e.g. rollout B=4,
+        # then sample_every uses train batch B=64).
+        if (
+            self.global_eps is None
+            or self.global_eps.shape != trajectory.shape
+            or self.global_eps.device != trajectory.device
+            or self.global_eps.dtype != trajectory.dtype
+        ):
+            self.global_eps = torch.randn_like(trajectory)
 
         for t in timesteps[:-1]:
             # 1. apply conditioning

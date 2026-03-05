@@ -93,6 +93,10 @@ class AsyncVectorEnv(VectorEnv):
         self.env_fns = env_fns
         self.shared_memory = shared_memory
         self.copy = copy
+        
+        # Initialize early so __del__/close() are safe even if __init__ fails.
+        self._state = AsyncState.DEFAULT
+        self.parent_pipes, self.processes = [], []
 
         # Added dummy_env_fn to fix OpenGL error in Mujoco
         # disable any OpenGL rendering in dummy_env_fn, since it
@@ -119,7 +123,9 @@ class AsyncVectorEnv(VectorEnv):
                     self.single_observation_space, n=self.num_envs, ctx=ctx
                 )
                 self.observations = read_from_shared_memory(
-                    _obs_buffer, self.single_observation_space, n=self.num_envs
+                    shared_memory=_obs_buffer,
+                    space=self.single_observation_space,
+                    n=self.num_envs,
                 )
             except CustomSpaceError:
                 raise ValueError(
@@ -136,7 +142,6 @@ class AsyncVectorEnv(VectorEnv):
                 self.single_observation_space, n=self.num_envs, fn=np.zeros
             )
 
-        self.parent_pipes, self.processes = [], []
         self.error_queue = ctx.Queue()
         target = _worker_shared_memory if self.shared_memory else _worker
         target = worker or target
@@ -163,7 +168,6 @@ class AsyncVectorEnv(VectorEnv):
                 process.start()
                 child_pipe.close()
 
-        self._state = AsyncState.DEFAULT
         self._check_observation_spaces()
 
     def seed(self, seeds=None):

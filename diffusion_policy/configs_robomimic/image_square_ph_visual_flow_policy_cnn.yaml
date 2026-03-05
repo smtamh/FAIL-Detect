@@ -183,11 +183,11 @@ task:
     fps: 10
     max_steps: 400
     n_action_steps: 8
-    n_envs: 28
+    n_envs: 4 # originally 28 - changed because of OOM issue
     n_obs_steps: 2
-    n_test: 50
+    n_test: 50 # tested with 6
     n_test_vis: 4
-    n_train: 6
+    n_train: 6 # tested with 2
     n_train_vis: 2
     past_action: false
     render_obs_key: agentview_image
@@ -258,10 +258,10 @@ training:
   lr_warmup_steps: 500
   max_train_steps: null
   max_val_steps: null
-  num_epochs: 800
+  num_epochs: 800 # tested with 4 epochs
   resume: true
-  rollout_every: 50
-  sample_every: 5
+  rollout_every: 50 # tested with 2
+  sample_every: 5 # tested with 2
   seed: 42
   tqdm_interval_sec: 1.0
   use_ema: true

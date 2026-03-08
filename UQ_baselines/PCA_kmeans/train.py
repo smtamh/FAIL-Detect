@@ -15,17 +15,21 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
     type = args.type
-    X, Y = data_loader.get_data(type=type, adjust_shape=False)
+    policy_type = args.policy_type.lower()
+    if policy_type not in ["flow", "diffusion"]:
+        raise ValueError(f"Unsupported policy_type: {args.policy_type}. Use 'flow' or 'diffusion'.")
+
+    X, Y = data_loader.get_data(type=type, adjust_shape=False, diffusion=(policy_type == "diffusion"))
     # Initialize the network
     # (Chen) This would vary depending on data, but since we do not wish users to change this, we hard-code it here based on previous runs
-    if args.policy_type == 'flow':
+    if policy_type == 'flow':
         emb_dim_dict = {'square': 55, 'transport': 120, 'tool_hang': 77, 'can': 56, 'lift': 50}
     else:
         emb_dim_dict = {'square': 46, 'transport': 65, 'tool_hang': 56, 'can': 39, 'lift': 47}
     emb_dim = emb_dim_dict[type]
     net = PCAKMeansNet(X, emb_dim=emb_dim).to(device)
     # Save the model state
-    ckpt_file = f'{type}_{args.policy_type}.ckpt'
+    ckpt_file = f'{type}_{policy_type}.ckpt'
     ckpt = {
         'model': net.state_dict()
     }

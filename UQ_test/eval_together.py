@@ -75,7 +75,7 @@ def main(policy_type, task_name, device, modify, num):
         cfg['task']['env_runner']['n_test'] = num
         cfg['task']['env_runner']['n_train'] = 0 # 3 rollouts for evaluation. Old was 6
         cfg['task']['env_runner']['n_envs'] = (cfg['task']['env_runner']['n_test'] + cfg['task']['env_runner']['n_train'])//2
-        cfg['task']['env_runner']['n_envs'] = min(cfg['task']['env_runner']['n_envs'], 50)
+        cfg['task']['env_runner']['n_envs'] = min(cfg['task']['env_runner']['n_envs'], 4)
         cfg['task']['env_runner']['n_test_vis'] = cfg['task']['env_runner']['n_test'] # Store all videos for debugging
         cfg['task']['env_runner']['_target_'] = env_target
         
@@ -103,11 +103,12 @@ def main(policy_type, task_name, device, modify, num):
         cfg.task.env_runner,
         output_dir=output_dir)
     env_runner.curr_shape = curr_shape
+    env_runner.task_name = task_name
     ## Get baseline comparison
     import eval_load_baseline as elb
     # Get DER
-    baseline_model = elb.get_baseline_model('DER', task_name, policy_type=policy_type).to(device)
-    env_runner.baseline_model = baseline_model; env_runner.task_name = task_name; print('DER loaded')
+    # baseline_model = elb.get_baseline_model('DER', task_name, policy_type=policy_type).to(device)
+    # env_runner.baseline_model = baseline_model; env_runner.task_name = task_name; print('DER loaded')
     # Get RND
     baseline_model_RND = elb.get_baseline_model('RND', task_name, policy_type=policy_type).to(device)
     env_runner.baseline_model_RND = baseline_model_RND; print('RND loaded')

@@ -19,6 +19,14 @@ sys.path.append('..')
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 torch.manual_seed(1103); numpy.random.seed(1103)
 
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+
+def _abs_from_root(path):
+    if path is None or os.path.isabs(path):
+        return path
+    return os.path.abspath(os.path.join(ROOT_DIR, path))
+
 @click.command()
 @click.option('-p', '--policy_type', required=True, default='flow')
 @click.option('-t', '--task_name', required=True, default='square')
@@ -44,11 +52,12 @@ def main(policy_type, task_name, device, modify, num):
                 num_inference_steps = 40
         return num_inference_steps
     num_inference_step = get_steps(policy_type, task_name)
-    output_dir = os.path.join(f'../data/outputs/train_{policy_type}_unet_visual_{task_name}_image{suffix}', 'final_eval', f'steps_{num_inference_step}{modify_suffix}')
+    output_dir = os.path.join(ROOT_DIR, f'data/outputs/train_{policy_type}_unet_visual_{task_name}_image{suffix}', 'final_eval', f'steps_{num_inference_step}{modify_suffix}')
     os.makedirs(output_dir, exist_ok=True)
     json_filename = f'eval_log_steps_{num_inference_step}.json'
     
     def get_policy(checkpoint):
+        checkpoint = _abs_from_root(checkpoint)
         payload = torch.load(open(checkpoint, 'rb'), pickle_module=dill)
         cfg = payload['cfg']
         from omegaconf import DictConfig
@@ -66,9 +75,12 @@ def main(policy_type, task_name, device, modify, num):
         cfg['task']['env_runner']['n_test'] = num
         cfg['task']['env_runner']['n_train'] = 0 # 3 rollouts for evaluation. Old was 6
         cfg['task']['env_runner']['n_envs'] = (cfg['task']['env_runner']['n_test'] + cfg['task']['env_runner']['n_train'])//2
-        cfg['task']['env_runner']['n_envs'] = min(cfg['task']['env_runner']['n_envs'], 50)
+        cfg['task']['env_runner']['n_envs'] = min(cfg['task']['env_runner']['n_envs'], 8) # limit to 8 envs for parallelization: to prevent OOM
         cfg['task']['env_runner']['n_test_vis'] = cfg['task']['env_runner']['n_test'] # Store all videos for debugging
         cfg['task']['env_runner']['_target_'] = env_target
+        # Adjust dataset path to be absolute (cfg['task'] and cfg['task']['dataset'] also have 'dataset_path', but they are not used right now)
+        if 'dataset_path' in cfg['task']['env_runner']:
+            cfg['task']['env_runner']['dataset_path'] = _abs_from_root(cfg['task']['env_runner']['dataset_path'])
         cfg['policy']['num_inference_steps'] = num_inference_step # change this would change the number of inference steps
         cfg['policy']['_target_'] = policy_target
         cls = hydra.utils.get_class(cfg._target_)
@@ -83,18 +95,19 @@ def main(policy_type, task_name, device, modify, num):
         policy.to(device)
         policy.eval()
         return policy, cfg, curr_shape
-    ckpt_path = f'../data/outputs/train_{policy_type}_unet_visual_{task_name}_image{suffix}/checkpoints/latest.ckpt'
+    ckpt_path = f'data/outputs/train_{policy_type}_unet_visual_{task_name}_image{suffix}/checkpoints/latest.ckpt'
     policy, cfg, curr_shape = get_policy(ckpt_path) # Policy generator
 
     env_runner = hydra.utils.instantiate(
         cfg.task.env_runner,
         output_dir=output_dir)
     env_runner.curr_shape = curr_shape
+    env_runner.task_name = task_name
     ## Get baseline comparison
     import eval_load_baseline as elb
-    # Get DER
-    baseline_model = elb.get_baseline_model('DER', task_name, policy_type=policy_type).to(device)
-    env_runner.baseline_model = baseline_model; env_runner.task_name = task_name; print('DER loaded')
+    # # Get DER: training failed - NaN loss problem
+    # baseline_model = elb.get_baseline_model('DER', task_name, policy_type=policy_type).to(device)
+    # env_runner.baseline_model = baseline_model; env_runner.task_name = task_name; print('DER loaded')
     # Get RND
     baseline_model_RND = elb.get_baseline_model('RND', task_name, policy_type=policy_type).to(device)
     env_runner.baseline_model_RND = baseline_model_RND; print('RND loaded')

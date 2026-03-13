@@ -42,8 +42,8 @@ if __name__ == '__main__':
     for dataset in mean_std_dict.keys():
         if args.num_train < 20 and 'ID' in dataset:
             continue
-        methods = ['STAC', 'PCA-kmeans', 'logpO', 'logpZO-Ot', 'DER', 'NatPN', 'CFM', 'RND-Ot+At']
-        methods_name = ['STAC', 'PCA-kmeans', 'logpO', 'logpZO', 'DER', 'NatPN', 'CFM', 'RND']
+        methods = ['PCA-kmeans', 'logpO', 'logpZO-Ot', 'NatPN', 'CFM', 'RND-Ot+At']
+        methods_name = ['PCA-kmeans', 'logpO', 'logpZO', 'NatPN', 'CFM', 'RND']
         file = os.path.join('logging', f'metrics_failure_detection_tr{num_train}_cal{num_cal}_te{num_te}_DP{args.diffusion_policy}.pkl')
         with open(file, 'rb') as f:
             result = pickle.load(f)
@@ -62,7 +62,7 @@ if __name__ == '__main__':
             if metric == 'Detect Time':
                 # Ignore zeros for the bottom indices
                 non_zero_indices = np.where(curr_result != 0)[0]
-                sorted_non_zero_indices = non_zero_indices[np.argsort(curr_result[non_zero_indices])]
+                sorted_non_zero_indices = non_zero_indices[np.argsort(curr_result.iloc[non_zero_indices])]
                 bottom_indices = sorted_non_zero_indices[:3]
                 colors = ['red', 'skyblue', 'green']
                 for idx, color in zip(bottom_indices, colors):
@@ -92,14 +92,16 @@ if __name__ == '__main__':
                 upper_lim = 1.15
                 curr_ax.set_ylim([0, upper_lim])      
             else:
-                curr_ax.set_ylim([0, max(curr_result) * 1.3])
+                max_detect_time = float(np.max(curr_result))
+                upper_lim = max_detect_time * 1.3 if max_detect_time > 0 else 1.0
+                curr_ax.set_ylim([0, upper_lim])
             
             if i == time_idx:
                 # Draw horizontal line with mean and std
                 mean, std = mean_std_dict[dataset]
                 curr_ax.fill_between([-0.5, len(methods) - 0.5], mean - std, mean + std, color='gray', alpha=0.5)
                 curr_ax.axhline(mean, color='black', linestyle='--')
-                curr_result_se = result.loc[(dataset, 'Detect Time SE')][:len(methods)]
+                curr_result_se = result.loc[(dataset, 'Detect Time SE')].iloc[:len(methods)]
                 curr_ax.errorbar(range(len(methods)), curr_result, yerr=curr_result_se, fmt='none', ecolor='black', capsize=3)
             
             fontsize = 18
@@ -119,7 +121,7 @@ if __name__ == '__main__':
                         label = 'NaN'
                     else:
                         label = str(int(round(v, 0)))
-                se = curr_result_se[j] if metric == 'Detect Time' else (v * (1 - v) / np.sqrt(num_samples))
+                se = curr_result_se.iloc[j] if metric == 'Detect Time' else (v * (1 - v) / np.sqrt(num_samples))
                 curr_ax.text(j, (v + se)*1.01, label, color='black', ha='center', va='bottom', fontsize=fontsize)
         
         fig.tight_layout()

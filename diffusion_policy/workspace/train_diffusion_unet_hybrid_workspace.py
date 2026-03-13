@@ -67,6 +67,11 @@ class TrainDiffusionUnetHybridWorkspace(BaseWorkspace):
             if lastest_ckpt_path.is_file():
                 print(f"Resuming from checkpoint {lastest_ckpt_path}")
                 self.load_checkpoint(path=lastest_ckpt_path)
+                print(f"Loaded latest.ckpt epoch={self.epoch}")
+                # latest.ckpt is saved before end-of-epoch epoch increment.
+                # Always advance to the next epoch on resume.
+                self.epoch += 1
+                print(f"Advanced resume epoch to next epoch: epoch={self.epoch}")
 
         # configure dataset
         dataset: BaseImageDataset
@@ -212,7 +217,11 @@ class TrainDiffusionUnetHybridWorkspace(BaseWorkspace):
 
                 # run rollout
                 if (self.epoch % cfg.training.rollout_every) == 0:
-                    runner_log = env_runner.run(policy)
+                    runner_log = env_runner.run(
+                        policy,
+                        current_epoch=self.epoch,
+                        rollout_every=cfg.training.rollout_every
+                    )
                     # log all
                     step_log.update(runner_log)
 

@@ -1,4 +1,5 @@
 import os
+import functools
 import wandb
 import numpy as np
 import torch
@@ -156,7 +157,8 @@ class RobomimicImageRunner(BaseImageRunner):
         env_fns = [env_fn] * n_envs
         env_seeds = list()
         env_prefixs = list()
-        env_init_fn_dills = list()
+        env_init_fn_templates = list()
+        self.rollout_count = 0
 
         # train
         with h5py.File(dataset_path, 'r') as f:
@@ -165,8 +167,8 @@ class RobomimicImageRunner(BaseImageRunner):
                 enable_render = i < n_train_vis
                 init_state = f[f'data/demo_{train_idx}/states'][0]
 
-                def init_fn(env, init_state=init_state, 
-                    enable_render=enable_render):
+                def init_fn_template(env, rollout_count, init_state=init_state, 
+                    enable_render=enable_render, train_idx=train_idx):
                     # setup rendering
                     # video_wrapper
                     assert isinstance(env.env, VideoRecordingWrapper)
@@ -174,7 +176,8 @@ class RobomimicImageRunner(BaseImageRunner):
                     env.env.file_path = None
                     if enable_render:
                         filename = pathlib.Path(output_dir).joinpath(
-                            'media', wv.util.generate_id() + ".mp4")
+                            'media',
+                            f"train_r{rollout_count:02d}_demo{train_idx}_{wv.util.generate_id()}.mp4")
                         filename.parent.mkdir(parents=False, exist_ok=True)
                         filename = str(filename)
                         env.env.file_path = filename
@@ -185,14 +188,14 @@ class RobomimicImageRunner(BaseImageRunner):
 
                 env_seeds.append(train_idx)
                 env_prefixs.append('train/')
-                env_init_fn_dills.append(dill.dumps(init_fn))
+                env_init_fn_templates.append(init_fn_template)
         
         # test
         for i in range(n_test):
             seed = test_start_seed + i
             enable_render = i < n_test_vis
 
-            def init_fn(env, seed=seed, 
+            def init_fn_template(env, rollout_count, seed=seed, 
                 enable_render=enable_render):
                 # setup rendering
                 # video_wrapper
@@ -201,7 +204,8 @@ class RobomimicImageRunner(BaseImageRunner):
                 env.env.file_path = None
                 if enable_render:
                     filename = pathlib.Path(output_dir).joinpath(
-                        'media', wv.util.generate_id() + ".mp4")
+                        'media',
+                        f"test_r{rollout_count:02d}_seed{seed}_{wv.util.generate_id()}.mp4")
                     filename.parent.mkdir(parents=False, exist_ok=True)
                     filename = str(filename)
                     env.env.file_path = filename
@@ -213,7 +217,7 @@ class RobomimicImageRunner(BaseImageRunner):
 
             env_seeds.append(seed)
             env_prefixs.append('test/')
-            env_init_fn_dills.append(dill.dumps(init_fn))
+            env_init_fn_templates.append(init_fn_template)
 
         env = AsyncVectorEnv(env_fns, dummy_env_fn=dummy_env_fn)
         # env = SyncVectorEnv(env_fns)
@@ -224,7 +228,7 @@ class RobomimicImageRunner(BaseImageRunner):
         self.env_fns = env_fns
         self.env_seeds = env_seeds
         self.env_prefixs = env_prefixs
-        self.env_init_fn_dills = env_init_fn_dills
+        self.env_init_fn_templates = env_init_fn_templates
         self.fps = fps
         self.crf = crf
         self.n_obs_steps = n_obs_steps
@@ -235,14 +239,18 @@ class RobomimicImageRunner(BaseImageRunner):
         self.abs_action = abs_action
         self.tqdm_interval_sec = tqdm_interval_sec
 
-    def run(self, policy: BaseImagePolicy):
+    def run(self, policy: BaseImagePolicy, current_epoch=None, rollout_every=None):
         device = policy.device
         dtype = policy.dtype
         env = self.env
+
+        rollout_count = self.rollout_count
+        if (current_epoch is not None) and (rollout_every is not None) and (rollout_every > 0):
+            rollout_count = current_epoch // rollout_every
         
         # plan for rollout
         n_envs = len(self.env_fns)
-        n_inits = len(self.env_init_fn_dills)
+        n_inits = len(self.env_init_fn_templates)
         n_chunks = math.ceil(n_inits / n_envs)
 
         # allocate data
@@ -256,11 +264,15 @@ class RobomimicImageRunner(BaseImageRunner):
             this_n_active_envs = end - start
             this_local_slice = slice(0,this_n_active_envs)
             
-            this_init_fns = self.env_init_fn_dills[this_global_slice]
-            n_diff = n_envs - len(this_init_fns)
+            this_init_templates = self.env_init_fn_templates[this_global_slice]
+            n_diff = n_envs - len(this_init_templates)
             if n_diff > 0:
-                this_init_fns.extend([self.env_init_fn_dills[0]]*n_diff)
-            assert len(this_init_fns) == n_envs
+                this_init_templates.extend([self.env_init_fn_templates[0]]*n_diff)
+            assert len(this_init_templates) == n_envs
+            this_init_fns = [
+                dill.dumps(functools.partial(init_fn_template, rollout_count=rollout_count))
+                for init_fn_template in this_init_templates
+            ]
 
             # init envs
             env.call_each('run_dill_function', 
@@ -349,7 +361,7 @@ class RobomimicImageRunner(BaseImageRunner):
             name = prefix+'mean_score'
             value = np.mean(value)
             log_data[name] = value
-
+        self.rollout_count = rollout_count + 1
         return log_data
 
     def undo_transform_action(self, action):

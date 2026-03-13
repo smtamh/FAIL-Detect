@@ -217,7 +217,16 @@ class DiffusionUnetHybridImagePolicy(BaseImagePolicy):
         
         trace = 0; d = trajectory.reshape(trajectory.shape[0], -1).shape[1]
         sigma = 0.001/math.sqrt(d)
-        if self.global_eps is None:
+        # if self.global_eps is None:
+        #     self.global_eps = torch.randn_like(trajectory).to(condition_data.device)
+
+        # recreate noise whenever batch/shape/device changes
+        if (
+            self.global_eps is None
+            or self.global_eps.shape != trajectory.shape
+            or self.global_eps.device != trajectory.device
+            or self.global_eps.dtype != trajectory.dtype
+        ):
             self.global_eps = torch.randn_like(trajectory).to(condition_data.device)
 
         for t in timesteps[:-1]:

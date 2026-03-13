@@ -15,3 +15,4 @@ __pycache__/
 *.cpython
 *.png
 ref_for_myself.md
+data/
